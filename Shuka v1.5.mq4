@@ -36,12 +36,30 @@ int      isCanROpen[COUNT_CONST];
 int      isCanSOpen[COUNT_CONST];
 bool     reinit;
 
+
+datetime LastDay;
+
+bool NewBar(int tf, datetime &lastbar)
+{
+   datetime curbar = iTime(_Symbol, tf, 0);
+   if(lastbar != curbar)
+    {
+     lastbar = curbar;
+     return (true);
+    }
+   else return(false);
+}
+
 void CalculateDay()
 {
 
    dayNow = DayOfWeek();
 
-   if (oldDay != dayNow || reinit)
+   bool NewDay;
+   NewDay = NewBar(PERIOD_D1, LastDay);
+
+   //if (oldDay != dayNow || reinit)
+   if (NewDay || reinit)
    {
       if (!reinit)
       {
@@ -116,6 +134,8 @@ int OnInit()
       reinit = 0;
       oldDay = DayOfWeek() - 1;
       if (oldDay < 0) oldDay = 5;
+      
+      LastDay = iTime(Symbol(), PERIOD_D1, 1);
       
       arrOfLots[0] = MarketInfo(Symbol(), MODE_MINLOT);
       for (int i = 1; i < КоличествоЛотов; i++)
