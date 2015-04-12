@@ -1,11 +1,11 @@
 //+------------------------------------------------------------------+
-//|                                                   Shuka v1.5.mq4 |
+//|                                                   Shuka v1.6.mq4 |
 //|                                                          RusLine |
 //|                                                                  |
 //+------------------------------------------------------------------+
 #property copyright "RusLine"
 #property link      ""
-#property version   "1.50"
+#property version   "1.60"
 #property strict
 
 //--- input parameters
@@ -38,6 +38,8 @@ bool     reinit;
 
 
 datetime LastDay;
+
+
 
 bool NewBar(int tf, datetime &lastbar)
 {
@@ -90,6 +92,7 @@ void CalculateDay()
 
       double R=yesterday_high - yesterday_low;//range
       pivot = (yesterday_high + yesterday_low + yesterday_close)/3;// Standard Pivot
+      
       for(int i = 0; i < COUNT_CONST; i++)
       {
          rArr[i] = pivot + (i * Шаг * Point) + (Рогатка) * Point;
@@ -119,6 +122,88 @@ void CalculateDay()
    }
 }
 
+bool isReset = false;
+bool isChoseR = false;
+void OnChartEvent(const int id,const long &lparam,const double &dparam,const string &sparam)
+{
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- проверка события нажатия на кнопку мыши
+
+   if(id==CHARTEVENT_OBJECT_CLICK)
+   {
+      if (sparam == "Reset")
+      {
+         ObjectSetInteger(0,"Reset",OBJPROP_STATE,false);
+         isReset = true;
+         OnInit();
+      }
+      if(sparam=="Change")
+      {
+         if (isChoseR)
+         {
+            isChoseR = false;
+            ButtonTextChange(0, "Change", "S");
+            for (int i = 0; i < COUNT_CONST; i++)
+            {
+               ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanSOpen[i]);
+               if (isSopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+               else ButtonTextChange(0, "But"+i, 0);
+            }
+         }
+         else
+         {
+            isChoseR = true;
+            ButtonTextChange(0, "Change", "R");
+            for (int i = 0; i < COUNT_CONST; i++)
+            {
+               ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanROpen[i]);
+               if (isRopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+               else ButtonTextChange(0, "But"+i, 0);
+            }
+         }
+      }
+      
+      for (int i = 0; i < COUNT_CONST; i++)
+      {
+         if(sparam==("But"+i))
+         {
+            if (!isChoseR)
+            {
+               if (isCanSOpen[i])
+               {
+                  isCanSOpen[i] = 0;
+                  
+               }
+               else
+               {
+                  isCanSOpen[i] = 1;
+                  
+               }
+               ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanSOpen[i]);
+            }
+            else
+            {
+               if (isCanROpen[i])
+               {
+                  isCanROpen[i] = 0;
+                  
+               }
+               else
+               {
+                  isCanROpen[i] = 1;
+                  
+               }
+               ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanROpen[i]);
+            }
+         }
+      }
+      
+   }
+   
+   ChartRedraw();
+}
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -129,8 +214,29 @@ int OnInit()
    name_obj = "";
    index = 0;
    
-   if (GlobalVariableGet("ReasonDeinit" + Symbol()) == 1) // Программа удалена с графика
+   int x;
+   int y, k = 0;
+   x = 20;
+   y = 40;
+   ButtonCreate(0,"Reset",0,x+1,y-20,62,20,InpCorner,"Сброс",InpFont,InpFontSize, InpColor,InpBackColor,InpBorderColor,InpState,InpBack,InpSelection,InpHidden,InpZOrder);
+   ButtonCreate(0,"Change",0,x+64,y-20,62,20,InpCorner,"Изменить",InpFont,InpFontSize, InpColor,InpBackColor,InpBorderColor,InpState,InpBack,InpSelection,InpHidden,InpZOrder);
+   ButtonTextChange(0, "Change", "S");
+   ObjectSetInteger(0,"Reset",OBJPROP_STATE,false);
+   for (int i = 1; i <= 3; i++)
    {
+      for (int j = 1; j <= 6; j++)
+      {
+         ButtonCreate(0,"But"+k,0,x*j+j,y,20,20,InpCorner,(string)10,InpFont,InpFontSize, InpColor,InpBackColor,InpBorderColor,InpState,InpBack,InpSelection,InpHidden,InpZOrder);
+         k++;
+      }
+      y = y + 20;
+   }
+
+   ObjectSetInteger(0,"Change",OBJPROP_STATE,isChoseR);
+   
+   if (GlobalVariableGet("ReasonDeinit" + Symbol()) == 1 || isReset) // Программа удалена с графика
+   {
+      isReset = false;
       reinit = 0;
       oldDay = DayOfWeek() - 1;
       if (oldDay < 0) oldDay = 5;
@@ -162,7 +268,7 @@ int OnInit()
          isCanROpen[i] = 1;
          isCanSOpen[i] = 1;
       }
-   
+
       CalculateDay();
       for(int i = 0; i < COUNT_CONST; i++)
       {
@@ -176,6 +282,13 @@ int OnInit()
             isCanSOpen[i] = 0;
          }
       }   
+      
+      for (int i = 0; i < COUNT_CONST; i++)
+      {
+         ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanSOpen[i]);
+         if (isSopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+         else ButtonTextChange(0, "But"+i, 0);
+      }
       return(INIT_SUCCEEDED);
    }
    
@@ -190,7 +303,13 @@ int OnInit()
       isSopen[i] = GlobalVariableGet("isSopen" + i + Symbol());
       isCanROpen[i] = GlobalVariableGet("isCanROpen" + i + Symbol());
       isCanSOpen[i] = GlobalVariableGet("isCanSOpen" + i + Symbol());
-   } 
+   }
+   for (int i = 0; i < COUNT_CONST; i++)
+   {
+      ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanSOpen[i]);
+      if (isSopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+      else ButtonTextChange(0, "But"+i, 0);
+   }
    countOfLots = GlobalVariableGet("countOfLots" + Symbol());
    reinit = 1;
    CalculateDay();
@@ -359,6 +478,21 @@ void OnTick()
 {
 //---
    CalculateDay();
+   for (int i = 0; i < COUNT_CONST; i++)
+   {
+      if (!isChoseR)
+      {
+         ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanSOpen[i]);
+         if (isSopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+         else ButtonTextChange(0, "But"+i, 0);      
+      }
+      else
+      {
+         ObjectSetInteger(0,"But"+i,OBJPROP_STATE,isCanROpen[i]);
+         if (isRopen[i] > 0) ButtonTextChange(0, "But"+i, 1);
+         else ButtonTextChange(0, "But"+i, 0);       
+      }
+   }
       for(int i = 0; i < COUNT_CONST; i++)
       {
          if (MarketInfo(Symbol(), MODE_ASK) >= (rArr[i] - Диапазон*Point) && isRopen[i] == -1 && isCanROpen[i])
@@ -409,3 +543,172 @@ void OnTick()
 
 }
 //+------------------------------------------------------------------+
+
+string           InpName="Button";            // Имя кнопки
+ENUM_BASE_CORNER InpCorner=CORNER_LEFT_UPPER; // Угол графика для привязки
+string           InpFont="Arial";             // Шрифт
+int              InpFontSize=10;              // Размер шрифта
+color            InpColor=clrBlack;           // Цвет текста
+color            InpBackColor=C'236,233,216'; // Цвет фона
+color            InpBorderColor=clrNONE;      // Цвет границы
+bool             InpState=false;              // Нажата/Отжата
+bool             InpBack=false;               // Объект на заднем плане
+bool             InpSelection=false;          // Выделить для перемещений
+bool             InpHidden=true;              // Скрыт в списке объектов
+long             InpZOrder=0;                 // Приоритет на нажатие мышью
+//+------------------------------------------------------------------+
+//| Создает кнопку                                                   |
+//+------------------------------------------------------------------+
+bool ButtonCreate(const long              chart_ID=0,               // ID графика
+                  const string            name="Button",            // имя кнопки
+                  const int               sub_window=0,             // номер подокна
+                  const int               x=0,                      // координата по оси X
+                  const int               y=0,                      // координата по оси Y
+                  const int               width=50,                 // ширина кнопки
+                  const int               height=18,                // высота кнопки
+                  const ENUM_BASE_CORNER  corner=CORNER_LEFT_UPPER, // угол графика для привязки
+                  const string            text="Button",            // текст
+                  const string            font="Arial",             // шрифт
+                  const int               font_size=10,             // размер шрифта
+                  const color             clr=clrBlack,             // цвет текста
+                  const color             back_clr=C'236,233,216',  // цвет фона
+                  const color             border_clr=clrNONE,       // цвет границы
+                  const bool              state=false,              // нажата/отжата
+                  const bool              back=false,               // на заднем плане
+                  const bool              selection=false,          // выделить для перемещений
+                  const bool              hidden=true,              // скрыт в списке объектов
+                  const long              z_order=0)                // приоритет на нажатие мышью
+  {
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- создадим кнопку
+   if(!ObjectCreate(chart_ID,name,OBJ_BUTTON,sub_window,0,0))
+     {
+      Print(__FUNCTION__,
+            ": не удалось создать кнопку! Код ошибки = ",GetLastError());
+      return(false);
+     }
+//--- установим координаты кнопки
+   ObjectSetInteger(chart_ID,name,OBJPROP_XDISTANCE,x);
+   ObjectSetInteger(chart_ID,name,OBJPROP_YDISTANCE,y);
+//--- установим размер кнопки
+   ObjectSetInteger(chart_ID,name,OBJPROP_XSIZE,width);
+   ObjectSetInteger(chart_ID,name,OBJPROP_YSIZE,height);
+//--- установим угол графика, относительно которого будут определяться координаты точки
+   ObjectSetInteger(chart_ID,name,OBJPROP_CORNER,corner);
+//--- установим текст
+   ObjectSetString(chart_ID,name,OBJPROP_TEXT,text);
+//--- установим шрифт текста
+   ObjectSetString(chart_ID,name,OBJPROP_FONT,font);
+//--- установим размер шрифта
+   ObjectSetInteger(chart_ID,name,OBJPROP_FONTSIZE,font_size);
+//--- установим цвет текста
+   ObjectSetInteger(chart_ID,name,OBJPROP_COLOR,clr);
+//--- установим цвет фона
+   ObjectSetInteger(chart_ID,name,OBJPROP_BGCOLOR,back_clr);
+//--- установим цвет границы
+   ObjectSetInteger(chart_ID,name,OBJPROP_BORDER_COLOR,border_clr);
+//--- отобразим на переднем (false) или заднем (true) плане
+   ObjectSetInteger(chart_ID,name,OBJPROP_BACK,back);
+//--- переведем кнопку в заданное состояние
+   ObjectSetInteger(chart_ID,name,OBJPROP_STATE,state);
+//--- включим (true) или отключим (false) режим перемещения кнопки мышью
+   ObjectSetInteger(chart_ID,name,OBJPROP_SELECTABLE,selection);
+   ObjectSetInteger(chart_ID,name,OBJPROP_SELECTED,selection);
+//--- скроем (true) или отобразим (false) имя графического объекта в списке объектов
+   ObjectSetInteger(chart_ID,name,OBJPROP_HIDDEN,hidden);
+//--- установим приоритет на получение события нажатия мыши на графике
+   ObjectSetInteger(chart_ID,name,OBJPROP_ZORDER,z_order);
+
+ObjectSetInteger(chart_ID,name,OBJPROP_BACK,0);
+   return(true);
+  }
+//+------------------------------------------------------------------+
+//| Перемещает кнопку                                                |
+//+------------------------------------------------------------------+
+bool ButtonMove(const long   chart_ID=0,    // ID графика
+                const string name="Button", // имя кнопки
+                const int    x=0,           // координата по оси X
+                const int    y=0)           // координата по оси Y
+  {
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- переместим кнопку
+   if(!ObjectSetInteger(chart_ID,name,OBJPROP_XDISTANCE,x))
+     {
+      Print(__FUNCTION__,
+            ": не удалось переместить X-координату кнопки! Код ошибки = ",GetLastError());
+      return(false);
+     }
+   if(!ObjectSetInteger(chart_ID,name,OBJPROP_YDISTANCE,y))
+     {
+      Print(__FUNCTION__,
+            ": не удалось переместить Y-координату кнопки! Код ошибки = ",GetLastError());
+      return(false);
+     }
+//--- успешное выполнение
+   return(true);
+  }
+//+------------------------------------------------------------------+
+//| Изменяет размер кнопки                                           |
+//+------------------------------------------------------------------+
+bool ButtonChangeSize(const long   chart_ID=0,    // ID графика
+                      const string name="Button", // имя кнопки
+                      const int    width=50,      // ширина кнопки
+                      const int    height=18)     // высота кнопки
+  {
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- изменим размеры кнопки
+   if(!ObjectSetInteger(chart_ID,name,OBJPROP_XSIZE,width))
+     {
+      Print(__FUNCTION__,
+            ": не удалось изменить ширину кнопки! Код ошибки = ",GetLastError());
+      return(false);
+     }
+   if(!ObjectSetInteger(chart_ID,name,OBJPROP_YSIZE,height))
+     {
+      Print(__FUNCTION__,
+            ": не удалось изменить высоту кнопки! Код ошибки = ",GetLastError());
+      return(false);
+     }
+//--- успешное выполнение
+   return(true);
+  }
+//+------------------------------------------------------------------+
+//| Изменяет текст кнопки                                            |
+//+------------------------------------------------------------------+
+bool ButtonTextChange(const long   chart_ID=0,    // ID графика
+                      const string name="Button", // имя кнопки
+                      const string text="Text")   // текст
+  {
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- изменим текст объекта
+   if(!ObjectSetString(chart_ID,name,OBJPROP_TEXT,text))
+     {
+      Print(__FUNCTION__,
+            ": не удалось изменить текст! Код ошибки = ",GetLastError());
+      return(false);
+     }
+//--- успешное выполнение
+   return(true);
+  }
+//+------------------------------------------------------------------+
+//| Удаляет кнопку                                                   |
+//+------------------------------------------------------------------+
+bool ButtonDelete(const long   chart_ID=0,    // ID графика
+                  const string name="Button") // имя кнопки
+  {
+//--- сбросим значение ошибки
+   ResetLastError();
+//--- удалим кнопку
+   if(!ObjectDelete(chart_ID,name))
+     {
+      Print(__FUNCTION__,
+            ": не удалось удалить кнопку! Код ошибки = ",GetLastError());
+      return(false);
+     }
+//--- успешное выполнение
+   return(true);
+  }
